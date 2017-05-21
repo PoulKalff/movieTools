@@ -517,6 +517,7 @@ class MovieTools_Model:
                 self.screen.refresh()
                 # identify last modified file and move it back
                 ending = ''
+                finalFile = False
                 if stack['srt']:
                     finalFile = stack['srt']
                     ending = '_TXT'
@@ -530,7 +531,8 @@ class MovieTools_Model:
                     ending += '_CMP'
                     extension = 'mkv'
                 outDir = args.outdir if args.outdir else self.parent.rootPath
-                self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
+                if finalFile:
+                    self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
                 self.screen.addstr(3 + lineNr, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
                 self.screen.refresh()
         if args.shutdown:
@@ -915,6 +917,39 @@ class MovieTools_View:
                             defMax   = str(time2 - time1)
                             if len(defMax) == 7:
                                 defMax = '0' + defMax
+
+
+
+
+
+                            self.tools.logEntry(4, "jobs: " + str(self.jobs))
+                            self.tools.logEntry(4, "j.fileIndex: " + str(j.fileIndex))
+                            self.tools.logEntry(4, "self.subMenus[0].y: " + str(self.subMenus[0].y))
+                            self.tools.logEntry(4, "j.operation: " + str(j.operation))
+                            self.tools.logEntry(4, "j.fileIndex == self.subMenus[0].y: " + str(j.fileIndex == self.subMenus[0].y))
+                            self.tools.logEntry(4, "j.operation == 3: " + str(j.operation == 3))
+
+
+
+
+# Her et sted bliver defMax og defShift glemt
+
+# 2017-05-21|19:32:47 INFO MovieTools.py started
+# 2017-05-21|19:32:51 INFO Added job for "Mars.3.en.mkv": Slice: (10:00:00 --> 20:00:00)
+# 2017-05-21|19:32:53 CRITICAL jobs: [<__main__.Job instance at 0x7fa621a55fc8>]
+# 2017-05-21|19:32:53 CRITICAL j.fileIndex: 0
+# 2017-05-21|19:32:53 CRITICAL self.subMenus[0].y: 0
+# 2017-05-21|19:32:53 CRITICAL j.operation: 3
+# 2017-05-21|19:32:53 CRITICAL j.fileIndex == self.subMenus[0].y: True
+# 2017-05-21|19:32:53 CRITICAL j.operation == 3: True
+# 2017-05-21|19:32:54 INFO Added job for "Mars.3.en.mkv": Shift Closed Captions 10:00:00 (10:00:00)
+# 2017-05-21|19:33:00 INFO Added job for "Mars.4.en.mkv": Slice: (30:00:00 --> 40:00:00)
+# 2017-05-21|19:33:03 INFO Added job for "Mars.4.en.mkv": Shift Closed Captions 00:00:00 (00:00:00)
+# 2017-05-21|19:33:06 INFO Program terminated by user
+
+
+
+
                     self.addSubMenu( 5, x + 14, y + 4, [['Shift:', defShift], ['Max:', defMax], ['Negative:', 'True'], '<Add Job>'] )
                 elif itemNo == 4:
                     self.addSubMenu( 6, x + 14, y + 5, ['<Remove>'] )
