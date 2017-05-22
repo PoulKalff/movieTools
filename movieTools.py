@@ -649,7 +649,7 @@ class MovieTools_View:
                 highLighted = self.pointer.get() if not self.subMenus else self.subMenus[0].prevPointer.get()
                 col = 1 if f.no == highLighted else f.color
                 if f.xPos > 2:
-                    screenData.append([f.xPos, 2, displayedName + ' ' + str(f.xPos), col])
+                    screenData.append([f.xPos, 2, displayedName, col])
             else:
                 hFiles += 1
         count = 0
@@ -906,8 +906,16 @@ class MovieTools_View:
                 elif itemNo == 3:
                     defShift = '00:00:00'
                     defMax   = '00:00:00'
-                    # find values from slice, if any
+                    # find values from slice, if any 
                     for j in self.jobs:
+                        self.tools.logEntry(3, "---------------- Submenu Opened! Eval is = " + str(j.fileIndex == self.subMenus[0].y) + '" : "' + str(j.operation == 3) + '"')
+                        self.tools.logEntry(3, "----- j.fileIndex = " + str(j.fileIndex) + '"')
+                        self.tools.logEntry(3, "----- self.subMenus[0].y = " + str(self.subMenus[0].y) + '"')
+                        self.tools.logEntry(3, "----- j.operation = " + str(j.operation) + '"')
+                        self.tools.logEntry(3, 'Eval Job: ' + str(j) )
+
+
+
                         if j.fileIndex == self.subMenus[0].y and j.operation == 3:
                             t1 = j.argument1
                             t2 = j.argument2
@@ -922,30 +930,15 @@ class MovieTools_View:
 
 
 
-                            self.tools.logEntry(4, "jobs: " + str(self.jobs))
-                            self.tools.logEntry(4, "j.fileIndex: " + str(j.fileIndex))
-                            self.tools.logEntry(4, "self.subMenus[0].y: " + str(self.subMenus[0].y))
-                            self.tools.logEntry(4, "j.operation: " + str(j.operation))
-                            self.tools.logEntry(4, "j.fileIndex == self.subMenus[0].y: " + str(j.fileIndex == self.subMenus[0].y))
-                            self.tools.logEntry(4, "j.operation == 3: " + str(j.operation == 3))
+                  #          self.tools.logEntry(4, "displayName: " + str(j.displayName))
+                   #         self.tools.logEntry(4, "j.fileIndex: " + str(j.fileIndex))
+                    #        self.tools.logEntry(4, "self.subMenus[0].y: " + str(self.subMenus[0].y))
+                     #       self.tools.logEntry(4, "j.operation: " + str(j.operation))
+                      #      self.tools.logEntry(4, "j.fileIndex == self.subMenus[0].y: " + str(j.fileIndex == self.subMenus[0].y))
+                       #     self.tools.logEntry(4, "j.operation == 3: " + str(j.operation == 3))
 
 
 
-
-# Her et sted bliver defMax og defShift glemt
-
-# 2017-05-21|19:32:47 INFO MovieTools.py started
-# 2017-05-21|19:32:51 INFO Added job for "Mars.3.en.mkv": Slice: (10:00:00 --> 20:00:00)
-# 2017-05-21|19:32:53 CRITICAL jobs: [<__main__.Job instance at 0x7fa621a55fc8>]
-# 2017-05-21|19:32:53 CRITICAL j.fileIndex: 0
-# 2017-05-21|19:32:53 CRITICAL self.subMenus[0].y: 0
-# 2017-05-21|19:32:53 CRITICAL j.operation: 3
-# 2017-05-21|19:32:53 CRITICAL j.fileIndex == self.subMenus[0].y: True
-# 2017-05-21|19:32:53 CRITICAL j.operation == 3: True
-# 2017-05-21|19:32:54 INFO Added job for "Mars.3.en.mkv": Shift Closed Captions 10:00:00 (10:00:00)
-# 2017-05-21|19:33:00 INFO Added job for "Mars.4.en.mkv": Slice: (30:00:00 --> 40:00:00)
-# 2017-05-21|19:33:03 INFO Added job for "Mars.4.en.mkv": Shift Closed Captions 00:00:00 (00:00:00)
-# 2017-05-21|19:33:06 INFO Program terminated by user
 
 
 
