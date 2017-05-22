@@ -16,7 +16,7 @@ import logging as log
 locale.setlocale(locale.LC_ALL, '')
 code = locale.getpreferredencoding()
 
-version = "v1.0"   # first complete version
+version = "v1.01"   # fixed bug when calculating subtitles' moved, fixed bug when forgetting last file in list
 
 # --- Variables ----------------------------------------------------------------------------------
 
@@ -906,17 +906,10 @@ class MovieTools_View:
                 elif itemNo == 3:
                     defShift = '00:00:00'
                     defMax   = '00:00:00'
-                    # find values from slice, if any 
+                    # find values from slice, if any
+                    fileNo = self.subMenus[0].prevPointer.get()
                     for j in self.jobs:
-                        self.tools.logEntry(3, "---------------- Submenu Opened! Eval is = " + str(j.fileIndex == self.subMenus[0].y) + '" : "' + str(j.operation == 3) + '"')
-                        self.tools.logEntry(3, "----- j.fileIndex = " + str(j.fileIndex) + '"')
-                        self.tools.logEntry(3, "----- self.subMenus[0].y = " + str(self.subMenus[0].y) + '"')
-                        self.tools.logEntry(3, "----- j.operation = " + str(j.operation) + '"')
-                        self.tools.logEntry(3, 'Eval Job: ' + str(j) )
-
-
-
-                        if j.fileIndex == self.subMenus[0].y and j.operation == 3:
+                        if j.fileIndex == fileNo and j.operation == 3:  # is (file iterated == file currently selected) AND is (operation == shift cc)?
                             t1 = j.argument1
                             t2 = j.argument2
                             time1 = datetime.timedelta(hours=float(t1[:2]), minutes=float(t1[3:5]), seconds=float(t1[6:8]))
@@ -925,24 +918,6 @@ class MovieTools_View:
                             defMax   = str(time2 - time1)
                             if len(defMax) == 7:
                                 defMax = '0' + defMax
-
-
-
-
-
-                  #          self.tools.logEntry(4, "displayName: " + str(j.displayName))
-                   #         self.tools.logEntry(4, "j.fileIndex: " + str(j.fileIndex))
-                    #        self.tools.logEntry(4, "self.subMenus[0].y: " + str(self.subMenus[0].y))
-                     #       self.tools.logEntry(4, "j.operation: " + str(j.operation))
-                      #      self.tools.logEntry(4, "j.fileIndex == self.subMenus[0].y: " + str(j.fileIndex == self.subMenus[0].y))
-                       #     self.tools.logEntry(4, "j.operation == 3: " + str(j.operation == 3))
-
-
-
-
-
-
-
                     self.addSubMenu( 5, x + 14, y + 4, [['Shift:', defShift], ['Max:', defMax], ['Negative:', 'True'], '<Add Job>'] )
                 elif itemNo == 4:
                     self.addSubMenu( 6, x + 14, y + 5, ['<Remove>'] )
@@ -1004,13 +979,15 @@ class MovieTools_View:
                 flag = False
                 for no, f in enumerate(self.files):
                     if f.no == fileID:
-                        flag = True
+                        if no + 1 < len(self.files):
+                            flag = True
+                        remName = self.files[fileID].name
                         self.files.remove(f)
                     if flag:
                         self.files[no].xPos -= 1
                         self.files[no].no -= 1
-                self.status = 'Forgot about "%s"' % (self.files[fileID].name)
-                self.tools.logEntry(1, 'Forgot about "%s"' % (self.files[fileID].name))
+                self.status = 'Forgot about "%s"' % (remName)
+                self.tools.logEntry(1, 'Forgot about "%s"' % (remName))
                 # reset menus
                 for r in range(len(self.subMenus)):
                     self.remSubMenu()
