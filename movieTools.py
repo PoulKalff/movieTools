@@ -16,15 +16,17 @@ import logging as log
 locale.setlocale(locale.LC_ALL, '')
 code = locale.getpreferredencoding()
 
-version = "v1.01"   # fixed bug when calculating subtitles' moved, fixed bug when forgetting last file in list
+version = "v1.02"   # Changed /tmp to varaible tempFiles, to save hdd-writes
 
 # --- Variables ----------------------------------------------------------------------------------
+
+tempFiles = '/mnt/overlord/6tb_hdd/multiMedia/miscellaneous/temporary'
 
 acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 
 extJobs = {   1 : "ccextractor -o '%s' -tpage %s '%s'",     # (outputFile, textTV_page, inputFile)   # side 398
               3 : "mkvmerge -o '%s' --split parts:%s-%s '%s'", # (outputfile, cut_from_time, cut_to_time, inputfile)
-              4 : "HandBrakeCLI -e x264  -q 20.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main --h264-level 4.0 -o '%s' -i '%s'",     # (Inputfile, outputfile)
+              4 : "HandBrakeCLI -e x264  -q 20.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main --h264-level 4.0 -s '1' -o '%s' -i '%s'",     # (Inputfile, outputfile)
             4.1 : " --srt-file '%s' --srt-codeset UTF-8"
           }
 
@@ -460,7 +462,7 @@ class MovieTools_Model:
                 stack = {'srt' : None, 'cmp' : None, 'cut' : None, 'cut_from' : None}
             # determine job type
             if job.operation == 1:
-                srt_file = getFileOut(fileIn, None, 'srt', '/tmp')
+                srt_file = getFileOut(fileIn, None, 'srt', tempFiles)
                 cmdLine = extJobs[1] % (srt_file, job.argument1, fileIn)
                 stack['srt'] = srt_file
             if job.operation == 2:
@@ -479,12 +481,12 @@ class MovieTools_Model:
                     self.logEntry(1, 'Finished processing job ' + str(jobNr + 1))
                     lineNr = lineNr + 4 if (lineNr + 4) < height else 4
             if job.operation == 3:
-                cut_file = getFileOut(fileIn, '_cut', 'mkv', '/tmp')
+                cut_file = getFileOut(fileIn, '_cut', 'mkv', tempFiles)
                 cmdLine = extJobs[3] % (cut_file, job.argument1, job.argument2, fileIn)
                 stack['cut'] = cut_file
             if job.operation == 4:
                 fil = stack['cut'] if stack['cut'] else fileIn
-                cmp_file = getFileOut(fil, '_cmp', 'mkv', '/tmp')
+                cmp_file = getFileOut(fil, '_cmp', 'mkv', tempFiles)
                 cmdLine = extJobs[4] % (cmp_file, fil)
                 stack['cmp'] = cmp_file
                 if stack['srt']:
@@ -515,6 +517,7 @@ class MovieTools_Model:
             if (jobNr + 1) == len(jobList) or job.fileIndex != jobList[jobNr + 1].fileIndex:
                 self.screen.addstr(2 + lineNr, 0, '  All jobs processed for "' + oFile.name + '", doing cleanup......', curses.color_pair(0))
                 self.screen.refresh()
+                lineNr += 1
                 # identify last modified file and move it back
                 ending = ''
                 finalFile = False
@@ -533,8 +536,9 @@ class MovieTools_Model:
                 outDir = args.outdir if args.outdir else self.parent.rootPath
                 if finalFile:
                     self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
-                self.screen.addstr(3 + lineNr, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
+                self.screen.addstr(4 + lineNr, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
                 self.screen.refresh()
+                lineNr += 2
         if args.shutdown:
             runExternal("sudo init 0")
         else:
@@ -765,7 +769,8 @@ class MovieTools_View:
         screenData.append([y + 12, x, '│ 10 sek forwards     <ALT + RIGHT> │', 5])
         screenData.append([y + 13, x, '│ 1 min backwards     <CTRL + LEFT> │', 5])
         screenData.append([y + 14, x, '│ 1 min forwards     <CTRL + RIGHT> │', 5])
-        screenData.append([y + 15, x, '└───────────────────────────────────╯', 5])
+        screenData.append([y + 15, x, '│ TxTV: DR1=397, DR2=398, TV2=399   │', 5])
+        screenData.append([y + 16, x, '└───────────────────────────────────╯', 5])
         return screenData
 
 
@@ -1035,7 +1040,8 @@ class MovieTools_View:
 
 # --- Main Program -------------------------------------------------------------------------------
 
-parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=40))
+parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog, max_
+help_position=40))
 parser.add_argument('files', type=str, nargs="*")
 parser.add_argument("-s", "--shutdown",  action="store_true", dest='shutdown', help="Shuts don the computer when all jobs done")
 parser.add_argument("-v", "--verbose",   action="store_true", dest='verbose',  help="Prints all output from external processes to screen")
@@ -1075,12 +1081,12 @@ if checkPackage('vlc'):
 if runExternal('ccextractor') != '':
     instPackages.ccextractor = True
 
-# clean up /tmp
-for l in os.listdir('/tmp'):
+# clean up tempFiles
+for l in os.listdir(tempFiles):
     if l.endswith('.mkv') or l.endswith('.srt'):
-        fromPath = os.path.join('/tmp/', l)
+        fromPath = os.path.join(tempFiles, l)
         file, ext = os.path.splitext(l)
-        toPath = os.path.join('/tmp/', file + '_' + ext[1:] + '.tmp')
+        toPath = os.path.join(tempFiles, file + '_' + ext[1:] + '.tmp')
         shutil.move(fromPath, toPath)
 
 # run program
@@ -1088,10 +1094,10 @@ pMT = MovieTools_View(args.files)
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - 
+# - Reload last set of jobs from from logs
 
-
-
+# - DONE: Save work in present dir, then remove the rest, istf. /tmp
+# - DONE: Mangler linieskift i completed-text
 
 
 
