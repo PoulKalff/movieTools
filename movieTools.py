@@ -16,21 +16,55 @@ import logging as log
 locale.setlocale(locale.LC_ALL, '')
 code = locale.getpreferredencoding()
 
-version = "v1.02"   # Changed /tmp to varaible tempFiles, to save hdd-writes
+version = "v1.03"   # added support for relaoding from .log
 
 # --- Variables ----------------------------------------------------------------------------------
 
-tempFiles = '/mnt/overlord/6tb_hdd/multiMedia/miscellaneous/temporary'
+tempFiles = '/mnt/overlord/6tb_hdd/.temp'
 
 acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 
 extJobs = {   1 : "ccextractor -o '%s' -tpage %s '%s'",     # (outputFile, textTV_page, inputFile)   # side 398
               3 : "mkvmerge -o '%s' --split parts:%s-%s '%s'", # (outputfile, cut_from_time, cut_to_time, inputfile)
-              4 : "HandBrakeCLI -e x264  -q 20.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main --h264-level 4.0 -s '1' -o '%s' -i '%s'",     # (Inputfile, outputfile)
+              4 : "HandBrakeCLI -e x264  -q 23.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main --h264-level 4.0 -s '1' -o '%s' -i '%s'",     # (Inputfile, outputfile)
             4.1 : " --srt-file '%s' --srt-codeset UTF-8"
           }
 
 # --- Functions ----------------------------------------------------------------------------------
+
+def parseLogs():
+    """ Finds and returns the last set of jobs """
+    logText = open('/var/log/movieTools.log', 'r').read().split('\n')
+    lineCount = len(logText) - 1
+    jobs = []
+    while 1:
+        lineCount -= 1
+        line = logText[lineCount]
+        if line != '':
+            if 'Added job' in line:
+                tmp, info = line.split('Added job for ')
+                film, info = info.split(':', 1)
+                film = film.replace('"', '')
+                if 'Extract' in info:
+                    tmp, ttpage = info.split('ttpage ')
+                    jobs.append([film, 1, ttpage])
+                elif 'Shift Closed Captions' in info:
+                    tmp, info = info.split('Captions ')
+                    tid, direction = info.split(', direction: ')
+                    til, fra = tid.split(' ')
+                    jobs.append([film, 2, fra, til, direction])
+                elif 'Slice' in info:
+                    jobType, tid = info.split(':', 1)
+                    fra, til = tid[2:-1].split(' --> ') 
+                    jobs.append([film, 3, fra, til])
+                elif 'Mux' in info:
+                    jobs.append([film, 4])
+                else:
+                    sys.exit('Failed to parse log-file')
+        else:
+            break
+    jobs.reverse()
+    return jobs
 
 def getFileOut(fileName, opr, newExt, newDir):
     """ Formats filename to be used as output. Optional jobType Description is added to name """
@@ -431,6 +465,7 @@ class MovieTools_Model:
             os.chmod(scr, 0777)
         else:
             self.logEntry(4, '\nSource File does not exist, cannot contine')
+            self.parent.killScreen()
             sys.exit('Fatal error in moveFile(), source does not exist: ' + scr)
         # make sure destination does not exist
         propDest = os.path.join(dst, os.path.split(scr)[1])
@@ -538,7 +573,7 @@ class MovieTools_Model:
                     self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
                 self.screen.addstr(4 + lineNr, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
                 self.screen.refresh()
-                lineNr += 2
+                lineNr += 4
         if args.shutdown:
             runExternal("sudo init 0")
         else:
@@ -581,6 +616,20 @@ class MovieTools_View:
         self.subMenus = []
         self.status = 'INIT'
         self.running = True
+        if args.reload:
+            for job in reloadedJobs:
+                identified = False                      # does file exist? 
+                for f in self.files:
+                    if f.name == job[0]:
+                        self.pointer.current = f.no         # dummy pointer, points to job file in list of files
+                        identified = True
+                if identified:
+                    arg1 = job[2] if len(job) > 2 else '-'
+                    arg2 = job[3] if len(job) > 3 else '-'
+                    arg3 = job[4] if len(job) > 4 else '-'
+                    self.addSubMenu( 0, 0, 0, [['Dummy1:', arg1], ['Dummy2:', arg2], ['Dummy3:', str(arg3 == '-->')]] )   # dummy submenu, overwrites arg1, arg2, arg3
+                    self.addJob(job[1])
+                    self.remSubMenu()
         self.loop()
 
 
@@ -782,7 +831,7 @@ class MovieTools_View:
 
 
     def getCurrentMenuItems(self):
-        """ Returns all items hold by currently selected menu """
+        """ Returns all items held by currently selected menu """
         items = []
         for r in self.subMenus[-1].menuItems:
             if type(r) == list:
@@ -827,7 +876,7 @@ class MovieTools_View:
             self.tools.logEntry(1, 'Added job for "%s": Extract ttpage %s' % (objFile.name, arg1))
         elif jobTypeID == 2:    # shift cc
             newJob = Job(objFile.no, jobTypeID, arg1, arg2, arg3)
-            self.tools.logEntry(1, 'Added job for "%s": Shift Closed Captions %s (%s)' % (objFile.name, arg1, arg2))
+            self.tools.logEntry(1, 'Added job for "%s": Shift Closed Captions %s (%s), direction: %s' % (objFile.name, arg1, arg2, '-->' if arg3.startswith('True') else '<--'))
         elif  jobTypeID == 3:   # slice
 
             time1 = datetime.timedelta(hours=float(arg1[:2]), minutes=float(arg1[3:5]), seconds=float(arg1[6:8]))
@@ -1014,38 +1063,14 @@ class MovieTools_View:
             self.running = False
 
 
-    def compareItemsUNUSED(self):
-        """ Shows the content of two files """
-        running = True
-        focus = [0, 0]
-        maxLines = max(len(fileLinesOrig), len(fileLinesBack))
-        while running:
-            for line in range(self.parent.height - 5):
-                nr = line + focus[1]
-                leftText = fileLinesOrig[nr] if nr < len(fileLinesOrig) else ''
-                self.parent.screen.addstr(3 + line, 1, leftText, curses.color_pair(0))
-            # wait for and process
-            self.parent.screen.refresh()
-            keyPressed = self.parent.screen.getch()
-            if keyPressed == curses.KEY_UP:
-                if focus[1] > 0:
-                    focus[1] -= 1
-            elif keyPressed == curses.KEY_DOWN:
-                if line + focus[1] < maxLines:
-                    focus[1] += 1
-            elif keyPressed == 113:     # Keypress 'q' = End Application
-                running = False
-        return 1
-
-
 # --- Main Program -------------------------------------------------------------------------------
 
-parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog, max_
-help_position=40))
+parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=40))
 parser.add_argument('files', type=str, nargs="*")
 parser.add_argument("-s", "--shutdown",  action="store_true", dest='shutdown', help="Shuts don the computer when all jobs done")
 parser.add_argument("-v", "--verbose",   action="store_true", dest='verbose',  help="Prints all output from external processes to screen")
 parser.add_argument("-l", "--log",       action="store_true", dest='log',      help="Shows log and exits")
+parser.add_argument("-r", "--reload",    action="store_true", dest='reload',   help="Reload last entry in logs")
 parser.add_argument("-o", "--outdir",    action="store",      dest='outdir',   help="All processed files will be moved to this directory when done", nargs=1)
 args = parser.parse_args()
 
@@ -1056,6 +1081,12 @@ if args.outdir:
         sys.exit("\n  Output directory does not exist! Exiting....\n")
 if args.log and os.path.exists('/var/log/movieTools.log'):
     sys.exit(open('/var/log/movieTools.log', 'r').read())
+if args.reload and os.path.exists('/var/log/movieTools.log'):
+    reloadedJobs = parseLogs()
+    files = []
+    for j in reloadedJobs:
+        if os.path.exists(j[0]) and j[0] not in args.files:
+            args.files.append(j[0])
 if not args.files:
     sys.exit("\n  No files to work with. Cannot continue...\n")
 else:
@@ -1094,10 +1125,7 @@ pMT = MovieTools_View(args.files)
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - Reload last set of jobs from from logs
-
-# - DONE: Save work in present dir, then remove the rest, istf. /tmp
-# - DONE: Mangler linieskift i completed-text
+# ?
 
 
 
