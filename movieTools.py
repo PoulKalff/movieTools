@@ -20,7 +20,7 @@ version = "v1.03"   # added support for relaoding from .log
 
 # --- Variables ----------------------------------------------------------------------------------
 
-tempFiles = '/mnt/overlord/6tb_hdd/.temp'
+tempFiles = '/mnt/6tb_hdd/.temp'
 
 acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 
@@ -51,7 +51,9 @@ def parseLogs():
                 elif 'Shift Closed Captions' in info:
                     tmp, info = info.split('Captions ')
                     tid, direction = info.split(', direction: ')
-                    til, fra = tid.split(' ')
+                    fra, til = tid.split(' ')
+                    til = til.replace('(', '').replace(')', '')		# remove extra paranthesis from loaded .log
+                    fra = fra.replace('(', '').replace(')', '')		# remove extra paranthesis from loaded .log
                     jobs.append([film, 2, fra, til, direction])
                 elif 'Slice' in info:
                     jobType, tid = info.split(':', 1)
@@ -514,7 +516,7 @@ class MovieTools_Model:
                     self.screen.addstr(3 + lineNr, 0, 'CC shifted %s (%s), capped at %s' % (job.argument1, direction, job.argument2), curses.color_pair(0))
                     self.screen.addstr(4 + lineNr, 0, '------ Job #' +  str(jobNr + 1) + ' done! ' + '-----------------------------------', curses.color_pair(0))
                     self.logEntry(1, 'Finished processing job ' + str(jobNr + 1))
-                    lineNr = lineNr + 4 if (lineNr + 4) < height else 4
+                    lineNr = lineNr + 4 if (lineNr + 10) < height else 4
             if job.operation == 3:
                 cut_file = getFileOut(fileIn, '_cut', 'mkv', tempFiles)
                 cmdLine = extJobs[3] % (cut_file, job.argument1, job.argument2, fileIn)
@@ -537,7 +539,7 @@ class MovieTools_Model:
                         if args.verbose:
                             self.screen.addstr(3 + lineNr, 1, '  ' + lineOut + '  ', curses.color_pair(0))
                             self.screen.refresh()
-                            lineNr += 1
+                            lineNr = lineNr + 1 if (lineNr + 5) < height else 4
                         lineOut = ''
                     elif out == '%':
                         lineOut += '%  '
@@ -548,11 +550,11 @@ class MovieTools_Model:
                         lineOut += out
                 self.screen.addstr(4 + lineNr, 0, '------ Job #' +  str(jobNr + 1) + ' done! ' + '-----------------------------------', curses.color_pair(0))
                 self.logEntry(1, 'Finished processing job ' + str(jobNr + 1))
-                lineNr = lineNr + 4 if (lineNr + 4) < height else 4
+                lineNr = lineNr + 4 if (lineNr + 10) < height else 4
             if (jobNr + 1) == len(jobList) or job.fileIndex != jobList[jobNr + 1].fileIndex:
                 self.screen.addstr(2 + lineNr, 0, '  All jobs processed for "' + oFile.name + '", doing cleanup......', curses.color_pair(0))
                 self.screen.refresh()
-                lineNr += 1
+                lineNr = lineNr + 1 if (lineNr + 5) < height else 4
                 # identify last modified file and move it back
                 ending = ''
                 finalFile = False
@@ -571,9 +573,9 @@ class MovieTools_Model:
                 outDir = args.outdir if args.outdir else self.parent.rootPath
                 if finalFile:
                     self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
-                self.screen.addstr(4 + lineNr, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
+                self.screen.addstr(lineNr + 4, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
                 self.screen.refresh()
-                lineNr += 4
+                lineNr = lineNr + 4 if (lineNr + 10) < height else 4
         if args.shutdown:
             runExternal("sudo init 0")
         else:
@@ -618,7 +620,7 @@ class MovieTools_View:
         self.running = True
         if args.reload:
             for job in reloadedJobs:
-                identified = False                      # does file exist? 
+                identified = False                      # does file exist?
                 for f in self.files:
                     if f.name == job[0]:
                         self.pointer.current = f.no         # dummy pointer, points to job file in list of files
