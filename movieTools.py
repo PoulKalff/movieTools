@@ -488,7 +488,7 @@ class MovieTools_Model:
         jobList = self.parent.jobs
         height, width = self.screen.getmaxyx()
         self.screen.clear()
-        self.screen.addstr(1, 0, 'Processing ' + str(len(jobList)) + ' batch job' + ('s' if len(jobList) > 1 else '') + '....', curses.color_pair(0))
+        self.wts(1, 0, 'Processing ' + str(len(jobList)) + ' batch job' + ('s' if len(jobList) > 1 else '') + '....', 0)
         out, lineOut, lineNr = '', '', 1
         for jobNr, job in enumerate(jobList):
             oFile = self.parent.files[job.fileIndex]
@@ -510,11 +510,11 @@ class MovieTools_Model:
                     fileToMove = stack['srt']
                 if fileToMove:
                     self.logEntry(1, 'Started processing job ' + str(jobNr + 1))
-                    self.screen.addstr(2 + lineNr, 0, '------ Running job ' + str(jobNr + 1) + ' of ' + str(len(self.parent.jobs)) + ': (Shift) ------------------', curses.color_pair(0))
+                    self.wts(2 + lineNr, 0, '------ Running job ' + str(jobNr + 1) + ' of ' + str(len(self.parent.jobs)) + ': (Shift) ------------------')
                     oHS = HandleSubtitles(fileToMove, job.argument1, job.argument2, job.argument3)
                     direction = '-->' if job.argument3.startswith('True') else '<--'
-                    self.screen.addstr(3 + lineNr, 0, 'CC shifted %s (%s), capped at %s' % (job.argument1, direction, job.argument2), curses.color_pair(0))
-                    self.screen.addstr(4 + lineNr, 0, '------ Job #' +  str(jobNr + 1) + ' done! ' + '-----------------------------------', curses.color_pair(0))
+                    self.wts(3 + lineNr, 0, 'CC shifted %s (%s), capped at %s' % (job.argument1, direction, job.argument2))
+                    self.wts(4 + lineNr, 0, '------ Job ' +  str(jobNr + 1) + ' done! ' + '-----------------------------------')
                     self.logEntry(1, 'Finished processing job ' + str(jobNr + 1))
                     lineNr = lineNr + 4 if (lineNr + 10) < height else 4
             if job.operation == 3:
@@ -532,27 +532,27 @@ class MovieTools_Model:
             if cmdLine:
                 process = subprocess.Popen(cmdLine, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
                 self.logEntry(1, 'Started processing job ' + str(jobNr + 1))
-                self.screen.addstr(2 + lineNr, 0, '------ Running job ' + str(jobNr + 1) + ' of ' + str(len(self.parent.jobs)) + ': (' + job.displayName.split()[0] + ') ------------------', curses.color_pair(0))
+                self.wts(2 + lineNr, 0, '------ Running job ' + str(jobNr + 1) + ' of ' + str(len(self.parent.jobs)) + ': (' + job.displayName.split()[0] + ') ------------------', 0)
                 while not (out == '' and process.poll() != None):
                     out = process.stdout.read(1)
                     if out == '\n':
                         if args.verbose:
-                            self.screen.addstr(3 + lineNr, 1, '  ' + lineOut + '  ', curses.color_pair(0))
+                            self.wts(3 + lineNr, 1, '  ' + lineOut + '  ')
                             self.screen.refresh()
                             lineNr = lineNr + 1 if (lineNr + 5) < height else 4
                         lineOut = ''
                     elif out == '%':
                         lineOut += '%  '
-                        self.screen.addstr(3 + lineNr, 1, '  ' + lineOut + '  ', curses.color_pair(0))
+                        self.wts(3 + lineNr, 1, '  ' + lineOut + '  ')
                         self.screen.refresh()
                         lineOut = ''
                     else:
                         lineOut += out
-                self.screen.addstr(4 + lineNr, 0, '------ Job #' +  str(jobNr + 1) + ' done! ' + '-----------------------------------', curses.color_pair(0))
+                self.wts(4 + lineNr, 0, '------ Job ' +  str(jobNr + 1) + ' done! ' + '-----------------------------------')
                 self.logEntry(1, 'Finished processing job ' + str(jobNr + 1))
                 lineNr = lineNr + 4 if (lineNr + 10) < height else 4
             if (jobNr + 1) == len(jobList) or job.fileIndex != jobList[jobNr + 1].fileIndex:
-                self.screen.addstr(2 + lineNr, 0, '  All jobs processed for "' + oFile.name + '", doing cleanup......', curses.color_pair(0))
+                self.wts(2 + lineNr, 0, '  All jobs processed for "' + oFile.name + '", doing cleanup......')
                 self.screen.refresh()
                 lineNr = lineNr + 1 if (lineNr + 5) < height else 4
                 # identify last modified file and move it back
@@ -573,13 +573,13 @@ class MovieTools_Model:
                 outDir = args.outdir if args.outdir else self.parent.rootPath
                 if finalFile:
                     self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
-                self.screen.addstr(lineNr + 4, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir), curses.color_pair(0))
+                self.wts(lineNr + 4, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir))
                 self.screen.refresh()
                 lineNr = lineNr + 4 if (lineNr + 10) < height else 4
         if args.shutdown:
             runExternal("sudo init 0")
         else:
-            self.screen.addstr(4 + lineNr, 0, '  All files processed, press any key to end program', curses.color_pair(0))
+            self.wts(4 + lineNr, 0, '  All files processed, press any key to end program')
             self.screen.refresh()
             self.screen.getch()
             self.parent.killScreen()
@@ -642,6 +642,18 @@ class MovieTools_View:
         self.killScreen()
         self.tools.logEntry(1, 'Program terminated by user')
         sys.exit('\n Program terminated by user\n')
+
+
+    def wts(self, xCord, yCord, txt, col=0):
+        """ Write to Screen. Wrapper that tests heigth/width before writing to screen  """
+        height, width = self.screen.getmaxyx()
+        if xCord > height:
+           self.screen.addstr(1, 1, 'WARNING!! Program tried to write BELOW window! (height=' + str(height) + ', X-coordinate=' + str(xCord) + ')', curses.color_pair(0))
+        elif yCord > width:
+           self.screen.addstr(1, 1, 'WARNING!! Program tried to write LEFT OF window! (width=' + str(width) + ', Y-coordinate=' + str(yCord) + ')', curses.color_pair(0))
+        else:
+           self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
+        return True
 
 
     def killScreen(self):
