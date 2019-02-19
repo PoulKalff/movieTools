@@ -8,6 +8,8 @@ import signal
 import shutil
 import locale
 import shutil
+import poktools
+import ../
 import argparse
 import datetime
 import subprocess
@@ -16,7 +18,7 @@ import logging as log
 locale.setlocale(locale.LC_ALL, '')
 code = locale.getpreferredencoding()
 
-version = "v1.043"   # All writing to screen via .wts
+version = "v2.0"   # Just starting....
 
 # --- Variables ----------------------------------------------------------------------------------
 
@@ -78,11 +80,6 @@ def getFileOut(fileName, opr, newExt, newDir):
     outPath = newDir if newDir else path
     extension = newExt if newExt else ext
     return os.path.join(outPath, name) + operation + '.' + extension
-
-def runExternal(command):
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True, stderr=open(os.devnull, 'w'))
-    output, err = process.communicate()
-    return output
 
 def checkPackage(package):
     if ' ' in package:
@@ -257,56 +254,6 @@ class HandleSubtitles:
         f.close()
 
 
-class FlipSwitch():
-    # (NEW) Represents a switch with on and off-state
-
-    def __init__(self, Ind):
-        self._value = bool(Ind)
-
-    def flip(self):
-        if self._value == True:
-            self._value = False
-        else:
-            self._value = True
-
-    def get(self):
-        return self._value
-
-    def getString(self):
-        return str(self._value)
-
-
-class RangeIterator():
-    # (NEW) Represents a range of INTs from 0 -> X
-
-    def __init__(self, Ind, loop=True):
-        self.current = 0
-        self.max = Ind
-        self.loop = loop
-
-    def inc(self, count=1):
-        self.current += count
-        self._test()
-
-    def dec(self, count=1):
-        self.current -= count
-        self._test()
-
-    def _test(self):
-        if self.loop:
-            if self.current > self.max:
-                self.current -= self.max + 1
-            elif self.current < 0:
-                self.current += self.max + 1
-        elif not self.loop:
-            if self.current >= self.max:
-                self.current = self.max
-            elif self.current < 0:
-                self.current = 0
-
-    def get(self):
-        return self.current
-
 class Packages:
     """ Status of installed packages """
 
@@ -314,7 +261,6 @@ class Packages:
     handbrake = False
     mkvmerge = False
     vlc = False
-
 
 
 class File:
@@ -379,88 +325,6 @@ class MovieTools_Model:
         self.wts = parent.wts
         self.logEntry(1, 'MovieTools.py started')
 
-
-    def logEntry(self, level, msg):
-        """ Tilfoejer entry til log-filen. Fejler SILENTLY hvis filen ikke kan oprettes (pga. manglende rettigheder). """
-        if not os.access('/var/log/movieTools.log', os.W_OK):
-            return 0
-        else:
-            logLevel = ['NONE', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-            ts = datetime.datetime.now().strftime('%Y-%m-%d|%H:%M:%S')
-            fh = open("/var/log/movieTools.log", "a")
-            if msg.endswith('started'):
-                fh.write('\n')
-            fh.write(ts + " " + logLevel[level] + " " + msg + "\n");
-            fh.close();
-            return 1;
-
-
-    def boolEdit(self, value, xPos, yPos):
-        """ Edits date within the screen by capturing all input"""
-        bValue = 0 if value == 'False' else 1
-        pointer = FlipSwitch(bValue)
-        teRunning = True
-        self.wts(height - 1, 0, 'UP/DOWN changes state, ENTER accepts changes', 6)    # Overwrite Status
-        while teRunning:
-            self.wts(yPos + 4, xPos + 10, pointer.getString() + ' ', 5)
-            keyPressed = self.screen.getch()
-            if keyPressed == 259 or keyPressed == 258:             # Cursor UP / Down
-                pointer.flip()
-            elif keyPressed == 260:           # Cursor LEFT
-                teRunning = False
-            elif keyPressed == 10:           # Return (Select)
-                teRunning = False
-        strValue = pointer.getString()
-        returnValue = strValue + ' ' if len(strValue) == 4 else strValue
-        return returnValue
-
-
-    def timeEdit(self, eString, xPos, yPos):
-        """ Edits date within the screen by capturing all input"""
-        pointer = RangeIterator(len(eString) - 1, False)
-        keyPressed = ''
-        teRunning = True
-        height, width = self.parent.screen.getmaxyx()
-        self.wts(height - 1, 0, 'UP/DOWN cycles digit, ENTER accepts changes', 6)    # Overwrite Status
-        while teRunning:
-            stringSliced = [eString[:pointer.get()], eString[pointer.get()], eString[pointer.get() + 1:]]
-            self.wts(yPos + 4, xPos + 10, stringSliced[0], 5)
-            self.wts(yPos + 4, xPos + 10 + len(stringSliced[0]), stringSliced[1], 1)
-            self.wts(yPos + 4, xPos + 10 + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], 5)
-            self.wts(yPos + 4, xPos + 10 + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ')    # overwrite last char
-            #self.wts(yPos + 6, xPos + 10, str(stringSliced) + ' - ' + str(keyPressed))      # Message output
-            keyPressed = self.screen.getch()
-            focusedChar = int(stringSliced[1])
-            if keyPressed == 259:             # Cursor UP
-                if focusedChar < 9:
-                    stringSliced[1] = str(focusedChar + 1)
-            elif keyPressed == 258:           # Cursor DOWN
-                if focusedChar > 0:
-                    stringSliced[1] = str(focusedChar - 1)
-            if keyPressed == 261:           # Cursor RIGHT
-                pointer.inc()
-                if len(stringSliced[2]) > 0 and stringSliced[2][0] == ':':
-                    pointer.inc()
-            elif keyPressed == 260:           # Cursor LEFT
-                if pointer.get() == 0:
-                    returnFile = stringSliced[0] + stringSliced[1] + stringSliced[2]
-                    teRunning = False
-                else:
-                    pointer.dec()
-                    if len(stringSliced[0]) > 0 and stringSliced[0][-1] == ':':
-                        pointer.dec()
-            elif keyPressed == 10:           # Return (Select)
-                returnFile = stringSliced[0] + stringSliced[1] + stringSliced[2]
-                teRunning = False
-            elif keyPressed > 47 and keyPressed < 58:   # 0-9
-                stringSliced[1] = chr(keyPressed)
-                pointer.inc()
-                if len(stringSliced[2]) > 0 and stringSliced[2][0] ==  ':':
-                    pointer.inc()
-            eString = stringSliced[0] + stringSliced[1] + stringSliced[2]
-        return returnFile
-
-
     def moveFile(self, scr, dst):
         # make sure source exists
         if os.path.exists(scr):
@@ -491,10 +355,8 @@ class MovieTools_Model:
         self.wts(1, 0, 'Processing ' + str(len(jobList)) + ' batch job' + ('s' if len(jobList) > 1 else '') + '....', 0)
         out, lineOut, lineNr = '', '', 1
         for jobNr, job in enumerate(jobList):
-
             if lineNr >= height - 5:
                 lineNr = 3
-
             oFile = self.parent.files[job.fileIndex]
             fileIn = os.path.join(oFile.path, oFile.name)
             # check/reset stack
@@ -591,7 +453,7 @@ class MovieTools_Model:
 
 
 
-class MovieTools_View:
+class MovieTools_View_OBSOLETE:
     """ Presents the screen of a program (mViewC) """
 
     def __init__(self, files):
