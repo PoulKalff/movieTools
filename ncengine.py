@@ -8,48 +8,22 @@ import poktools
 
 # --- Variables -----------------------------------------------------------------------------------
 
-version = "v0.03"   # initial development
+version = "v0.04"   # change objects
 locale.setlocale(locale.LC_ALL, '')
 
 # --- Classes -------------------------------------------------------------------------------------
 
-class Menu:
+class nceObject:
 	""" A menu where the user can choose between lines of text """
 
-	def __init__(self, xPos, yPos, content, color, mWidth, frame):
-		self.x = xPos
-		self.y = yPos
-		self.frame = frame
-		self.color = color
-		self.content = content
-		self.maxWidth = mWidth
-		self.visible = True
-		self.pointer = RangeIterator(len(content) - 1, False)
-
-
-class Textbox:
-	""" A collection of text-lines """
-
-	def __init__(self, xPos, yPos, content, color, mWidth, frame):
-		self.x = xPos
-		self.y = yPos
-		self.frame = frame
-		self.color = color
-		self.content = content
-		self.maxWidth = mWidth
-		self.visible = True
-
-
-class Label:
-	""" One simple text-line """
-
-	def __init__(self, xPos, yPos, content, color, mWidth):
-		self.x = xPos
-		self.y = yPos
-		self.frame = False
-		self.color = color
-		self.content = content
-		self.maxWidth = mWidth
+	def __init__(self, _type, _xPos, _yPos, _content, _color, _mWidth, _frame):
+		self.type = _type
+		self.x = _xPos
+		self.y = _yPos
+		self.frame = _frame
+		self.color = _color
+		self.content = _content
+		self.maxWidth = _mWidth
 		self.visible = True
 
 
@@ -82,32 +56,32 @@ class NCEngine:
 		self._generateID = self.idGenerator()
 
 
-    def wts(self, xCord, yCord, txt, col=0):
-        """ Write to Screen. Wrapper that tests heigth/width before writing to screen  """
-        height, width = self.screen.getmaxyx()
-        if xCord > height:
-           self.screen.addstr(1, 1, 'WARNING!! Program tried to write BELOW window! (height=' + str(height) + ', X-coordinate=' + str(xCord) + ')', curses.color_pair(0))
-        elif yCord > width:
-           self.screen.addstr(1, 1, 'WARNING!! Program tried to write LEFT OF window! (width=' + str(width) + ', Y-coordinate=' + str(yCord) + ')', curses.color_pair(0))
-        else:
-           self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
-        self.screen.refresh()
-        return True
+	def wts(self, xCord, yCord, txt, col=0):
+		""" Write to Screen. Wrapper that tests heigth/width before writing to screen  """
+		height, width = self.screen.getmaxyx()
+		if xCord > height:
+		   self.screen.addstr(1, 1, 'WARNING!! Program tried to write BELOW window! (height=' + str(height) + ', X-coordinate=' + str(xCord) + ')', curses.color_pair(0))
+		elif yCord > width:
+		   self.screen.addstr(1, 1, 'WARNING!! Program tried to write LEFT OF window! (width=' + str(width) + ', Y-coordinate=' + str(yCord) + ')', curses.color_pair(0))
+		else:
+		   self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
+		self.screen.refresh()
+		return True
 
 
-   def logEntry(self, level, msg):
-        """ Tilfoejer entry til log-filen. Fejler SILENTLY hvis filen ikke kan oprettes (pga. manglende rettigheder). """
-        if not os.access('/var/log/movieTools.log', os.W_OK):
-            return 0
-        else:
-            logLevel = ['NONE', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-            ts = datetime.datetime.now().strftime('%Y-%m-%d|%H:%M:%S')
-            fh = open("/var/log/movieTools.log", "a")
-            if msg.endswith('started'):
-                fh.write('\n')
-            fh.write(ts + " " + logLevel[level] + " " + msg + "\n");
-            fh.close();
-            return 1;
+	def logEntry(self, level, msg):
+		""" Tilfoejer entry til log-filen. Fejler SILENTLY hvis filen ikke kan oprettes (pga. manglende rettigheder). """
+		if not os.access('/var/log/movieTools.log', os.W_OK):
+			return 0
+		else:
+			logLevel = ['NONE', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+			ts = datetime.datetime.now().strftime('%Y-%m-%d|%H:%M:%S')
+			fh = open("/var/log/movieTools.log", "a")
+			if msg.endswith('started'):
+				fh.write('\n')
+			fh.write(ts + " " + logLevel[level] + " " + msg + "\n");
+			fh.close();
+			return 1;
 
 
 	def _getSize(self):
@@ -132,18 +106,18 @@ class NCEngine:
 		self._getSize()
 		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
 		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
-		pointer = RangeIterator(len(eString) - 1, False)
+		pointer = poktools.RangeIterator(len(eString) - 1, False)
 		keyPressed = ''
 		teRunning = True
-		self.screen.addstr(self.height - 1, 0, 'UP/DOWN cycles digit, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		self.wts(self.height - 1, 0, 'UP/DOWN cycles digit, ENTER accepts changes', 6)    # Overwrite Status
 		self.screen.refresh()
 		while teRunning:
 			stringSliced = [eString[:pointer.get()], eString[pointer.get()], eString[pointer.get() + 1:]]
-			self.screen.addstr(yPos, xPos, stringSliced[0], curses.color_pair(5))
-			self.screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(1))
-			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(5))
-			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(0))    # overwrite last char
-			#self.screen.addstr(yPos + 2, xPos + 10, str(stringSliced) + ' - ' + str(keyPressed), curses.color_pair(0))      # Message output
+			self.wts(yPos, xPos, stringSliced[0], 5)
+			self.wts(yPos, xPos + len(stringSliced[0]), stringSliced[1], 1)
+			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], 5)
+			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', 0)    # overwrite last char
+			#self.wts(yPos + 2, xPos + 10, str(stringSliced) + ' - ' + str(keyPressed))      # Message output
 			self.screen.refresh()
 			keyPressed = self.screen.getch()
 			focusedChar = int(stringSliced[1])
@@ -182,12 +156,12 @@ class NCEngine:
 		bValue = 0 if value == 'False' else 1
 		pointer = FlipSwitch(bValue)
 		self._getSize()
-		self.screen.addstr(self.height - 9, 0, 'UP/DOWN changes state, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		self.wts(self.height - 9, 0, 'UP/DOWN changes state, ENTER accepts changes', 6)    # Overwrite Status
 		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
 		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
 		teRunning = True
 		while teRunning:
-			self.screen.addstr(yPos, xPos, pointer.getString() + ' ', curses.color_pair(color))
+			self.wts(yPos, xPos, pointer.getString() + ' ', color)
 			self.screen.refresh()
 			keyPressed = self.screen.getch()
 			if keyPressed == 259 or keyPressed == 258:             # Cursor UP / Down
@@ -203,26 +177,26 @@ class NCEngine:
 
 	def textEditor(self, x, y, eString, color):
 		""" Edits a line of text """
-		pointer = RangeIterator(len(eString) - 1, False)
+		pointer = poktools.RangeIterator(len(eString) - 1, False)
 		keyPressed = ''
 		stringSliced = [[], [], []]
 		self._getSize()
 		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
 		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
-		self.screen.addstr(yPos, xPos, eString, curses.color_pair(2))     # overwrite line to edit
+		self.wts(yPos, xPos, eString, 2)     # overwrite line to edit
 		editorRunning = True
 		while editorRunning:
 			if len(eString) > 0:
 				stringSliced[0] = eString[:pointer.get()]
 				stringSliced[1] = eString[pointer.get()]
 				stringSliced[2] = eString[pointer.get() + 1:]
-			self.screen.addstr(yPos, xPos, stringSliced[0], curses.color_pair(color))
-			self.screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(200))
-			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(color))
-			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(3))    # overwrite last char
-# DEBUG		self.screen.addstr(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , curses.color_pair(4))
-# DEBUG		self.screen.addstr(21, 2, str(stringSliced) + ' ' , curses.color_pair(4))
-# DEBUG		self.screen.addstr(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', curses.color_pair(4))
+			self.wts(yPos, xPos, stringSliced[0], color)
+			self.wts(yPos, xPos + len(stringSliced[0]), stringSliced[1], 200)
+			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], color)
+			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', 3)    # overwrite last char
+# DEBUG		self.wts(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , 4)
+# DEBUG		self.wts(21, 2, str(stringSliced) + ' ' , 4)
+# DEBUG		self.wts(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', 4)
 			self.screen.refresh()
 			keyPressed = self.screen.getch()
 			if keyPressed == 261:            # Cursor RIGHT
@@ -266,7 +240,7 @@ class NCEngine:
 		self._getSize()
 		self.screen.clear()
 		if self.width < 60 or self.height < 20:
-			self.screen.addstr(1, 1, "Windows too small to render!" , curses.color_pair(1))
+			self.wts(1, 1, "Windows too small to render!" , 1)
 		else:
 			# check if resized
 			if curses.is_term_resized(self.height, self.width):
@@ -277,7 +251,7 @@ class NCEngine:
 			# render lines
 			self.drawLines()
 			# render status
-			self.screen.addstr(self.height - 1, 1, self._status , curses.color_pair(1))
+			self.wts(self.height - 1, 1, self._status , 1)
 			# render objects
 			self.drawObjects()
 		self.screen.refresh()
@@ -292,16 +266,15 @@ class NCEngine:
 			if o.frame:
 				if o.maxWidth + o.x < self.width:
 					for nr, item in enumerate(o.content):
-						self.screen.addstr(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', curses.color_pair(o.color))
-				self.screen.addstr(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', curses.color_pair(o.color))						# Top
-				self.screen.addstr(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', curses.color_pair(o.color))		# Bottom
+						self.wts(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', o.color)
+				self.wts(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', o.color)							# Top
+				self.wts(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', o.color)		# Bottom
 			# text
 			for nr, item in enumerate(o.content):
-				itemColor = curses.color_pair(o.color)
-				if type(o) is Menu:
-					if nr == o.pointer.get():
-						itemColor = curses.color_pair(200)
-				self.screen.addstr(posY + nr + 1, posX + 2, item, itemColor)
+				itemColor = o.color
+				if o.type == 'MENU':
+					itemColor = 200 if nr == o.pointer.get() else o.color
+				self.wts(posY + nr + 1, posX + 2, item, itemColor)
 
 
 	def drawLines(self):
@@ -312,32 +285,32 @@ class NCEngine:
 				position = int((l[1] * self.width / 100) if type(l[1]) == float else l[1])
 				intersections[0].append(position)
 				for yPos in range(1, self.height - 2):
-					self.screen.addstr(yPos, position, '│', curses.color_pair(self._borderColor))
+					self.wts(yPos, position, '│', self._borderColor)
 				# endpoints
-				self.screen.addstr(0, position, '┬', curses.color_pair(self._borderColor))
-				self.screen.addstr(self.height - 2, position, '┴', curses.color_pair(self._borderColor))
+				self.wts(0, position, '┬',self._borderColor)
+				self.wts(self.height - 2, position, '┴', self._borderColor)
 			elif l[0] == 'h':
 				position = int((l[1] * self.height / 100) - 1 if type(l[1]) == float else l[1])
 				intersections[1].append(position)
-				self.screen.addstr(position, 1, '─' * (self.width - 2), curses.color_pair(self._borderColor))
+				self.wts(position, 1, '─' * (self.width - 2), self._borderColor)
 				# endpoints
-				self.screen.addstr(position, 0, '├', curses.color_pair(self._borderColor))
-				self.screen.addstr(position, self.width - 1, '┤', curses.color_pair(self._borderColor))
+				self.wts(position, 0, '├', self._borderColor)
+				self.wts(position, self.width - 1, '┤', self._borderColor)
 		# draw intersections
 		for x in intersections[1]:
 			for y in intersections[0]:
-				self.screen.addstr(x, y, '┼', curses.color_pair(self._borderColor))
+				self.wts(x, y, '┼', self._borderColor)
 
 
 	def drawBorder(self):
 		""" Draw the staic border of the screen """
 		# horizontal lines
-		self.screen.addstr(0, 0, '╭' + '─' * (self.width - 2) + '╮', curses.color_pair(self._borderColor))				# Top
-		self.screen.addstr(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', curses.color_pair(self._borderColor))			# Bottom
+		self.wts(0, 0, '╭' + '─' * (self.width - 2) + '╮', self._borderColor)						# Top
+		self.wts(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', self._borderColor)			# Bottom
 		# vertical lines
 		for yPos in range(1, self.height - 2):
-			self.screen.addstr(yPos, 0, '│', curses.color_pair(self._borderColor))
-			self.screen.addstr(yPos, self.width - 1, '│', curses.color_pair(self._borderColor))
+			self.wts(yPos, 0, '│', self._borderColor)
+			self.wts(yPos, self.width - 1, '│', self._borderColor)
 
 
 	def getInput(self):
@@ -382,7 +355,10 @@ class NCEngine:
 
 	@property
 	def activeObject(self):
-		return self.objects[self._activeObjectNo]
+		if self._activeObjectNo:
+			return self.objects[self._activeObjectNo]
+		else:
+			return None
 
 	@activeObject.setter
 	def activeObject(self, val):
@@ -400,33 +376,39 @@ class NCEngine:
 	def addLabel(self, x, y, item, color):
 		maxLength = len(item)
 		id = self.generateID()
-		self.objects[id] = Label(x, y, [item], color, maxLength)
+		self.objects[id] = nceObject('LABEL', x, y, [item], color, maxLength, False)
 		return id
 
 	def addTextbox(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		id = self.generateID()
-		self.objects[id] =  Textbox(x, y, items, color, maxLength, frame)
+		self.objects[id] =  nceObject('TEXTBOX', x, y, items, color, maxLength, frame)
 		return id
 
 	def addMenu(self, x, y, items, color, frame):
+		items = list(map(str, items))	# ensure list items are string-type
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		id = self.generateID()
-		self.objects[id] = Menu(x, y, items, color, maxLength, frame)
+		obj = nceObject('MENU', x, y, items, color, maxLength, frame)
+		obj.pointer = poktools.RangeIterator(len(items) - 1, False)
+		self.objects[id] = obj
 		return id
+
+
+
 
 
 # --- Main ---------------------------------------------------------------------------------------
 
 if sys.version_info < (3, 0):
-    sys.stdout.write("Sorry, requires Python 3.x\n")
-    sys.exit(1)
+	sys.stdout.write("Sorry, requires Python 3.x\n")
+	sys.exit(1)
 
 
 
 # --- TODO ---------------------------------------------------------------------------------------
 # - BUG 	  : Stadigt problemer med scroll/count af bytes..... (??)
-# - BUG		  : Crasher stadigt hvis window bliver minimalt
+# - BUG		  : Crasher stadigt hvis window bliver minimalt I HOEJDE!!
 # - FEATURE	  : lave properties til alt, som kan indstilles
 # - DOKUMENTATION : Lav mindst simpel dokumentation af hver funktion
 # - Status mangler for alle editors ..... pånær digitseditor

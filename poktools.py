@@ -1,6 +1,11 @@
 # Poul Kalff python programming module
 # -*- coding: utf-8 -*-
 
+import os
+import sys
+import subprocess
+import logging as log
+
 # --- Variables ----------------------------------------------------------------------------------
 
 # --- Functions ----------------------------------------------------------------------------------
@@ -25,7 +30,7 @@ def readFileContents(self, fil):
 
 
 def writeFileContents(self, file, content):
-""" Write data to file """
+    """ Write data to file """
     counter = 0
     while os.path.exists(self.file + '_BACKUP' + str(counter)):
         counter += 1
@@ -42,9 +47,11 @@ def writeFileContents(self, file, content):
 
 def runExternal(command):
     """ Runs external process and returns output """
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True, stderr=open(os.devnull, 'w'))
-    output, err = process.communicate()
+#    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True, stderr=open(os.devnull, 'w'))
+ #   output, err = process.communicate()
+    output = subprocess.getoutput(command)      # New to Python3, untested!
     return output
+
 
 
 # --- Classes ------------------------------------------------------------------------------------
