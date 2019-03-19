@@ -20,7 +20,7 @@ version = "v1.043"   # All writing to screen via .wts
 
 # --- Variables ----------------------------------------------------------------------------------
 
-tempFiles = '/mnt/overlord/6tb_hdd/.temp'
+tempFiles = '/mnt/6tb_hdd/.temp'
 
 acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 

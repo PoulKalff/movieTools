@@ -16,11 +16,11 @@ from ncengine import NCEngine
 locale.setlocale(locale.LC_ALL, '')
 code = locale.getpreferredencoding()
 
-version = "v2.0"   # Just starting....
+version = "v2.01"   # Converting to Python3....
 
 # --- Variables ----------------------------------------------------------------------------------
 
-tempFiles = '/mnt/overlord/6tb_hdd/.temp'
+tempFiles = '/mnt/6tb_hdd/.temp'
 
 acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 
@@ -29,30 +29,6 @@ extJobs = {   1 : "ccextractor -o '%s' -tpage %s '%s'",     # (outputFile, textT
 			  4 : "HandBrakeCLI -e x264  -q 23.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main --h264-level 4.0 -s '1' -o '%s' -i '%s'",     # (Inputfile, outputfile)
 			4.1 : " --srt-file '%s' --srt-codeset UTF-8"
 		  }
-
-# --- Functions ----------------------------------------------------------------------------------
-
-
-def getFileOut(fileName, opr, newExt, newDir):
-	""" Formats filename to be used as output. Optional jobType Description is added to name """
-	path, fil = os.path.split(fileName)
-	name, ext = fil.rsplit('.', 1)
-	operation = opr if opr else ''
-	outPath = newDir if newDir else path
-	extension = newExt if newExt else ext
-	return os.path.join(outPath, name) + operation + '.' + extension
-
-
-def checkPackage(package):
-	if ' ' in package:
-		return -1       # Please specify one package only
-	raw_output = poktools.runExternal("dpkg -l " + package)
-	lines = raw_output.split('\n')
-	if len(lines) == 1:
-		return False
-	else:
-		return True
-
 
 # --- Classes --------------------------------------------------------------------------------------
 
@@ -218,15 +194,6 @@ class HandleSubtitles:
 		f.close()
 
 
-class Packages:
-	""" Status of installed packages """
-
-	ccextractor = False
-	handbrake = False
-	mkvmerge = False
-	vlc = False
-
-
 class File:
 	""" Holds EACH file to process """
 
@@ -286,7 +253,7 @@ class MovieTools:
 	def __init__(self, files):
 		# init view
 		self.view = NCEngine()
-		self.view.borderColor = 1
+		self.view.screenBorder = True
 		self.view.addGridLine('v', 50.0)
 		self.view.addGridLine('h', 2)
 		# Add top menus
@@ -389,6 +356,16 @@ class MovieTools:
 		return True
 
 
+	def getFileOut(fileName, opr, newExt, newDir):
+		""" Formats filename to be used as output. Optional jobType Description is added to name """
+		path, fil = os.path.split(fileName)
+		name, ext = fil.rsplit('.', 1)
+		operation = opr if opr else ''
+		outPath = newDir if newDir else path
+		extension = newExt if newExt else ext
+		return os.path.join(outPath, name) + operation + '.' + extension
+
+
 	def processJobs(self):
 		""" Process list of jobs, one by one """
 		previous = 100
@@ -408,7 +385,7 @@ class MovieTools:
 				stack = {'srt' : None, 'cmp' : None, 'cut' : None, 'cut_from' : None}
 			# determine job type
 			if job.operation == 1:
-				srt_file = getFileOut(fileIn, None, 'srt', tempFiles)
+				srt_file = self.getFileOut(fileIn, None, 'srt', tempFiles)
 				cmdLine = extJobs[1] % (srt_file, job.argument1, fileIn)
 				stack['srt'] = srt_file
 			if job.operation == 2:
@@ -427,12 +404,12 @@ class MovieTools:
 					self.logEntry(1, 'Finished processing job ' + str(jobNr + 1))
 					lineNr += 4
 			if job.operation == 3:
-				cut_file = getFileOut(fileIn, '_cut', 'mkv', tempFiles)
+				cut_file = self.getFileOut(fileIn, '_cut', 'mkv', tempFiles)
 				cmdLine = extJobs[3] % (cut_file, job.argument1, job.argument2, fileIn)
 				stack['cut'] = cut_file
 			if job.operation == 4:		# compress
 				fil = stack['cut'] if stack['cut'] else fileIn
-				cmp_file = getFileOut(fil, '_cmp', 'mkv', tempFiles)
+				cmp_file = self.getFileOut(fil, '_cmp', 'mkv', tempFiles)
 				cmdLine = extJobs[4] % (cmp_file, fil)
 				stack['cmp'] = cmp_file
 				srt_file = fileIn[:-3] + 'srt'	# hack!
@@ -481,7 +458,7 @@ class MovieTools:
 					extension = 'mkv'
 				outDir = args.outdir if args.outdir else self.parent.rootPath
 				if finalFile:
-					self.moveFile(finalFile, getFileOut(fileIn, ending, extension, outDir))
+					self.moveFile(finalFile, self.getFileOut(fileIn, ending, extension, outDir))
 				self.wts(lineNr + 4, 10, 'Cleanup complete, processed file moved to "%s"' % (outDir))
 				lineNr += 4
 		if args.shutdown:
@@ -535,15 +512,12 @@ if args.shutdown and os.getuid() != 0:
 if not os.access('/var/log/movieTools.log', os.W_OK):
 	raw_input("\n  /var/log/movieTools.log could not be accessed. Logging will be disabled. (Any key to continue)")
 
-instPackages = Packages()
-if checkPackage('handbrake-cli'):
-	instPackages.handbrake = True
-if checkPackage('mkvtoolnix'):
-	instPackages.mkvmerge = True
-if checkPackage('vlc'):
-	instPackages.vlc = True
-if poktools.runExternal('ccextractor') != '':
-	instPackages.ccextractor = True
+#check needed packages
+#poktools.ensurePackage('handbrake-cli')
+#poktools.ensurePackage('mkvtoolnix')
+#poktools.ensurePackage('vlc')
+#if poktools.runExternal('ccextractor') != '':
+#	poktools.installPackage('ccextractor')
 
 # clean up tempFiles
 for l in os.listdir(tempFiles):
@@ -558,9 +532,8 @@ pMT = MovieTools(args.files)
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - Posibility to mux .srt into file
+# - Posibility to mux EXTERNAL .srt into file
 # - Remove single job from job list (or edit?)
-
 
 
 
