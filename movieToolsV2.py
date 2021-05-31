@@ -26,7 +26,9 @@ acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 
 extJobs = {   1 : "ccextractor -o '%s' -tpage %s '%s'",     # (outputFile, textTV_page, inputFile)   # side 398
 			  3 : "mkvmerge -o '%s' --split parts:%s-%s '%s'", # (outputfile, cut_from_time, cut_to_time, inputfile)
-			  4 : "HandBrakeCLI -e x264  -q 23.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main --h264-level 4.0 -s '1' -o '%s' -i '%s'",     # (Inputfile, outputfile)
+			  4 : "HandBrakeCLI -e x264  -q 23.0 -a 1 -E ffaac -B 160 -6 dpl2 -R Auto -D 0.0 --audio-copy-mask aac,ac3,dtshd,dts,mp3 \
+					 --audio-fallback ffac3 -f mkv --loose-anamorphic --modulus 2 -m --x264-preset veryfast --h264-profile main \
+					 --h264-level 4.0 -s '1' -o '%s' -i '%s'",     # (Inputfile, outputfile)
 			4.1 : " --srt-file '%s' --srt-codeset UTF-8"
 		  }
 

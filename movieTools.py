@@ -244,9 +244,8 @@ class HandleSubtitles:
     def writeFile(self):
         # make backup
         counter = 0
-        while os.path.exists(self.file + '_BACKUP' + str(counter)):
-            counter += 1
-        shutil.copy(self.file, self.file + '_BACKUP' + str(counter))
+        if not  os.path.exists(self.file + '_ORIGINAL' + str(counter)):
+	        shutil.copy(self.file, self.file + '_ORIGINAL' + str(counter))
         # write file
         nr = 0
         f = open(self.file, 'w')
@@ -400,7 +399,7 @@ class MovieTools_Model:
         bValue = 0 if value == 'False' else 1
         pointer = FlipSwitch(bValue)
         teRunning = True
-        self.wts(height - 1, 0, 'UP/DOWN changes state, ENTER accepts changes', 6)    # Overwrite Status
+#        self.wts(height - 1, 0, 'UP/DOWN changes state, ENTER accepts changes', 6)    # Overwrite Status
         while teRunning:
             self.wts(yPos + 4, xPos + 10, pointer.getString() + ' ', 5)
             keyPressed = self.screen.getch()
