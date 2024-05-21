@@ -20,7 +20,7 @@ version = "v2.01"   # Converting to Python3....
 
 # --- Variables ----------------------------------------------------------------------------------
 
-tempFiles = '/mnt/6tb_hdd/.temp'
+tempFiles = "/mnt/emuData/Downloads/"
 
 acceptedFiles = ['.TS', '.MKV', '.SRT', '.MP4']
 
@@ -254,17 +254,17 @@ class MovieTools:
 
 	def __init__(self, files):
 		# init view
-		self.view = NCEngine()
+		self.view = NCEngine(self)
 		self.view.screenBorder = True
-		self.view.addGridLine('v', 50.0)
-		self.view.addGridLine('h', 2)
+		self.view.addGridLine('v', True, 50.0)
+		self.view.addGridLine('h', True, 2)
 		# Add top menus
-		self.view.addLabel(0, 0, 'Mediafiles:', 6)
-		self.view.addLabel(50., 0, 'Jobs:', 6)
+#		self.view.addLabel(0, 0, Mediafiles:', 6)
+#		self.view.addLabel(50., 0, 'Jobs:', 6)
 		self.view.status = 'MovieTools initiated...'
 
 
-		menuID = self.view.addMenu(0, 2, [1,2,3,4,5], self.view.color['blue'], False)
+		menuID = self.view.addMenu(0, 2, [1,2,3,4,5], 4, False, False)
 		textBoxID = self.view.addTextbox(50., 2, ['Hello', 'fucker'], self.view.color['red'], False)
 		self.view.activeObject = menuID
 
@@ -512,7 +512,7 @@ else:
 if args.shutdown and os.getuid() != 0:
 	sys.exit("\n  Cannot run shutdown on exit, unless run as root user! Exiting....\n")
 if not os.access('/var/log/movieTools.log', os.W_OK):
-	raw_input("\n  /var/log/movieTools.log could not be accessed. Logging will be disabled. (Any key to continue)")
+	input("\n  /var/log/movieTools.log could not be accessed. Logging will be disabled. (Any key to continue)")
 
 #check needed packages
 #poktools.ensurePackage('handbrake-cli')
