@@ -8,6 +8,7 @@ import shutil
 import argparse
 import datetime
 import subprocess
+import numpy as np
 from pymediainfo import MediaInfo
 
 # --- Variables ----------------------------------------------------------------------------------
@@ -16,11 +17,6 @@ cutout = ''
 filePermissions = '755'
 validFormats = ['.ts','.mkv','.mp4','.avi']
 htsLogFiles = '/home/hts/.hts/tvheadend/dvr/log/'
-extPrograms =	{
-			'ccextractor' : 'apt install -y ccextractor\n',
-			'HandBrakeCLI': 'apt install -y handbrake-cli',
-			'pymediainfo' :	'sudo apt-get install -y libmediainfo-dev'
-		}
 extJobs = 		{		1    : "ccextractor -o '%s' -tpage %s '%s'",     # (outputFile, textTV_page, inputFile)
 					2    : "HandBrakeCLI -e x264  -q 23.0 --loose-anamorphic --x264-preset veryfast --h264-profile main --h264-level 4.0%s -o '%s' -i '%s' %s",     # (Srt-file, Outputfile, Inputfile)
 					2.1  : " --srt-default --srt-codeset UTF-8",
@@ -52,6 +48,7 @@ class fileClass:
 	fileName = None
 	fullPath = None
 	outFile = None
+	fullOutFile = None
 	subLang = None
 	service = None
 
@@ -60,6 +57,7 @@ class fileClass:
 		self.path, self.fileName = os.path.split(self.fullPath)
 		self.noExt, self.ext = os.path.splitext(self.fileName)
 		self.outFile = self.noExt + '.mkv' if self.ext != '.mkv' else self.noExt + '.new.mkv'
+		self.fullOutFile = os.path.abspath(self.outFile)
 		if True:
 			self.outFile = self.outFile.replace(' ', '.')
 		self.srtFiles = []
@@ -71,7 +69,7 @@ class fileClass:
 				language = f[-6:-4] if f[-4] == '.' and f[-7] == '.' else '<unknown>'
 				if args.forceLanguage != None:
 					language = args.forceLanguage[0]
-				self.srtFiles.append([f, language])
+				self.srtFiles.append([f, language])	# f should be absolute, but abs() does not work
 
 
 # --- Defs ---------------------------------------------------------------------------------------
@@ -130,6 +128,7 @@ if sys.version_info.major < 3:
 #check arguments
 parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=120))
 parser.add_argument('files', type=str, nargs="*")
+
 parser.add_argument("-e", "--extractSubtitles",	action="store_true",	help="Extracts subtitles before encode, and includes these in mux")
 parser.add_argument("-s", "--showCommand",	action="store_true",	help="Prints the command to be executed and exits")
 parser.add_argument("-d", "--delete",		action="store_true",	help="Deletes all files after any operation")
@@ -137,7 +136,7 @@ parser.add_argument("-u", "--updateDVR",	action="store_true",	help="Update tvhea
 parser.add_argument("-c", "--cutout",		action="store",		help="Only encode from and to specific timemarks ('hh:mm:ss,hh:mm:ss')", type=str, nargs=1)
 parser.add_argument("-n", "--noCheckMedia",	action="store_true",	help="Do not check file info")
 parser.add_argument("-p", "--noSetPermissions",	action="store_true",	help="Do not change file permissions")
-parser.add_argument("-i", "--noCheckExt",	action="store_true",	help="Does not check that external programs exist")
+parser.add_argument("-i", "--checkExt",		action="store_true",	help="Checks that external programs exist")
 parser.add_argument("-m", "--mux",		action="store_true",	help="Encodes file to according to presets (mkv)")
 parser.add_argument("-k", "--copy",		action="store_true",	help="Join files into mkv-container (copy)")
 parser.add_argument("-f", "--forceLanguage",	action="store",		help="Force encoded file to set subtitle language to <FORCELANGUAGE>", type=str, nargs=1),
@@ -199,24 +198,24 @@ if args.updateDVR:
 	sys.exit('\n  All done!\n')
 
 #check external programs
-allCorrect = True
-if not args.noCheckExt:
+if args.checkExt:
 	print('\n  Checking for external programs...')
-	for prog in extPrograms:
-		print('    ' + prog + '...', end='')
-		if subprocess.call(['which', prog], stdout=subprocess.PIPE):
-			print(' does not seem to be installed. Install with "' + extPrograms[prog] + '"\n')
-			allCorrect = False
-		else:
-			print(' OK')
+	print('    ccextractor...', end='')
+	if subprocess.call(['which', 'ccextractor'], stdout=subprocess.PIPE):
+		print(' does not seem to be installed. Install with "apt install -y ccextractor"')
+	else:
+		print(' OK')
+	print('    HandbrakeCLI...', end='')
+	if subprocess.call(['which', 'HandBrakeCLI'], stdout=subprocess.PIPE):
+		print(' does not seem to be installed. Install with "apt install -y handbrake-cli"')
+	else:
+		print(' OK')
 	try:
 		from pymediainfo import MediaInfo
 		print('    pymediainfo... OK')
 	except:
-		print('    pymediainfo... does not seem to be installed. Install with "pip3 install pymediainfo"\n')
-		allCorrect = False
-	if not allCorrect:
-		sys.exit('  Some external programs were mising, exiting...\n')
+		print('    pymediainfo... does not seem to be installed. Install with "pip3 install pymediainfo"')
+	sys.exit('\n')
 
 # creating fileObject(s)
 fileHandles = []
@@ -230,7 +229,7 @@ for f in args.files:
 		for track in fileInfo['tracks']:
 			mediaInfo[track['track_type']] = track
 		# cherrypick info
-		fh.subLang = mediaInfo['Other']['language']	if 'Other' in mediaInfo else False
+		fh.subLang = mediaInfo['Other']['language']    if 'Other' in mediaInfo else False
 		fh.service = mediaInfo['Menu']['service_name'] if 'Menu' in mediaInfo else False
 
 	# show collected data
@@ -252,21 +251,50 @@ for f in args.files:
 	print('    +' + ('-' * (maxLength + 21)) + '+')
 	cmdLineSrt = False
 	if args.findStopEnd: #		Tester med:	13:08,1:02:24
+		cap = cv2.VideoCapture(args.files[0])			# Open the video file
+		fps = int(cap.get(cv2.CAP_PROP_FPS))			# Get the frames per second
+		frame_count= cap.get(cv2.CAP_PROP_FRAME_COUNT)		# Get the total numer of frames in the video.
 		if os.path.exists("refImageFROM.jpg") and os.path.exists("refImageTO.jpg"):
 			print("\n  Both reference images exist, searching...\n")
-
-
-
-
-
-
-
-
-
-
-
-
-			sys.exit("\n  nonImplmented exception: findStopEnd\n")
+			imgFROM = cv2.imread(f"refImageFROM.jpg")
+			imgTO   = cv2.imread(f"refImageTO.jpg")
+			imgFROM = cv2.cvtColor(imgFROM, cv2.COLOR_BGR2GRAY)
+			imgTO   = cv2.cvtColor(imgTO, cv2.COLOR_BGR2GRAY)
+			h, w = imgFROM.shape
+			frameToCheck = 0
+			imgSEARCH = imgFROM
+			firstFound = False
+			diffMin = 1.1
+			# check each frame untill match is found
+			while frameToCheck < frame_count - fps:
+				time = str(secondsToTime(int(frameToCheck / fps)))
+				print("    Checking frame number " + ((10 - len(time)) * " ") + time + " : Match to ref is ", end="")
+				cap.set(cv2.CAP_PROP_POS_FRAMES, frameToCheck)
+				ret, img = cap.read()
+				frameImage = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+				diff = cv2.subtract(imgSEARCH, frameImage)
+				err = np.sum(diff**2)
+				difference = err/(float(h*w))
+				print(difference)
+				# update frame count, in effect, check every second
+				frameToCheck += fps
+				if difference < diffMin:
+					seconds = int(frameToCheck / fps)
+					print("Match was found at : ", secondsToTime(seconds))
+					print("Difference         : ", difference)
+					if not firstFound:
+						firstFound = True
+						timestampFROM = secondsToTime(seconds)
+						imgSEARCH = imgTO	# continue looking for second match
+						diffMin = 0.4
+						frameToCheck += 3000 * 45
+					else:
+						timestampTO = secondsToTime(seconds)
+						print("\n SUCCES! Both timestamps where found.\n")
+						print(" Run this command to extract video:")
+						print("     sudo ./recordingsTools.py '%s' --mux --cutout '%s,%s'\n" % (args.files[0], timestampFROM, timestampTO))
+						sys.exit()
+			sys.exit("\n All frames where checked without further matches, sorry...\n")
 		else:
 			print("\n  Reference images do not exist\n")
 			raw = input('\n    Type start and end frames ("hh:mm:ss,hh:mm:ss") : ')
@@ -278,9 +306,6 @@ for f in args.files:
 			else:
 				sys.exit('\nMalformed cutout string: must contain two timemarks, seperated by "," ( e.g. "hh:mm:ss,hh:mm:ss")\n')
 			# extract two reference images and then end program
-			cap = cv2.VideoCapture(args.files[0])			# Open the video file
-			fps = cap.get(cv2.CAP_PROP_FPS)				# Get the frames per second
-			frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)		# Get the total numer of frames in the video.
 			fraFrame = int(fraSeconds * fps)
 			tilFrame = int(tilSeconds * fps)
 			# save first frame
@@ -325,7 +350,7 @@ for f in args.files:
 		srtArg = extJobs[2.1] if fh.srtFiles else ''
 		for count, f in enumerate(fh.srtFiles):
 			srtArg += extJobs[2.11] % (count, f[0], f[1])
-		cmdLine = extJobs[2] % (srtArg, fh.outFile, fh.fileName, cutout)
+		cmdLine = extJobs[2] % (srtArg, fh.fullOutFile, fh.fullPath, cutout)
 		if args.showCommand:
 			if cmdLineSrt:
 				print('\n  Extraction-command to be executed: ' + cmdLineSrt)
@@ -333,7 +358,8 @@ for f in args.files:
 			print('\n  All done!\n')
 			sys.exit()
 		else:
-			print('\n  Encoding to"' + fh.fileName + '":')
+			print('\n  Encoding to "' + fh.fileName + '":')
+			print(cmdLine)
 			runProcess(cmdLine)
 	elif args.copy:
 		srtArg = ['', '', '']
@@ -379,8 +405,8 @@ print('\n  All done!\n')
 
 
 
-
-
+#  FROM :	00:12:51
+#  TO : 	01:01:45
 
 
 
